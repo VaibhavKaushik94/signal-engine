@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Feed Filter MVP",
+  "version": "1.0",
+  "description": "Client-side DOM interceptor for X.",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://localhost:11434/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Feed Filter Settings"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://x.com/*", 
+        "*://*.twitter.com/*",
+        "*://twitter.com/*",
+        "*://*.linkedin.com/*",
+        "*://linkedin.com/*",
+        "*://*.youtube.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
