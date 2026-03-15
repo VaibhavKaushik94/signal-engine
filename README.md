@@ -1,4 +1,4 @@
-# Feed Filter MVP (Chrome Extension)
+# Signal Engine (Chrome Extension)
 
 A lightweight Chrome extension that filters social media feeds (X/Twitter, LinkedIn, YouTube) using a local AI service (Ollama). It hides posts that don’t match the selected content focus (software, hardware, finance, or a custom filter).
 
@@ -36,7 +36,40 @@ A lightweight Chrome extension that filters social media feeds (X/Twitter, Linke
 ### Prerequisites
 
 - Chrome (or Chromium-based browser) with extension loading enabled
-- Ollama running locally and accessible at `http://localhost:11434/`
+- Ollama installed and running locally (required for AI filtering)
+
+### Install Ollama
+
+1. Visit https://ollama.ai/ and follow the installation instructions for macOS.
+2. Verify installation:
+   ```bash
+   ollama --version
+   ```
+
+### Download / Pull the `phi3` model
+
+Ollama uses local models. Pull the required model before using the extension:
+
+```bash
+ollama pull phi3
+```
+
+### Run Ollama with CORS enabled (if needed)
+
+If you see CORS errors when Chrome tries to call Ollama, start Ollama with CORS allowed:
+
+```bash
+ollama serve --host 127.0.0.1 --port 11434 --cors
+```
+
+If you still see CORS issues, you can allow all origins before running Ollama:
+
+```bash
+export OLLAMA_ORIGIN="*"
+ollama serve --host 127.0.0.1 --port 11434 --cors
+```
+
+> If `--cors` isn't supported in your version, run on localhost and ensure the extension has `host_permissions` for `http://localhost:11434/*` (already configured in `manifest.json`).
 
 ### Load into Chrome
 

@@ -62,10 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
     buttons.forEach(btn => {
         btn.addEventListener('click', () => {
             const mode = btn.getAttribute('data-mode');
-            
+
+            // If user changes mode, ensure the extension is active
+            chrome.storage.local.set({ isActive: true }, () => {
+                updatePowerUI(true);
+            });
+
             if (mode === 'custom') {
                 // Just update UI to show the box, don't reload tab yet
-                updateModeUI(mode); 
+                updateModeUI(mode);
             } else {
                 // Save and apply immediately for presets
                 chrome.storage.local.set({ focusMode: mode }, () => {
@@ -84,12 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        // Ensure extension is active when custom filter is saved
         chrome.storage.local.set({ 
+            isActive: true,
             focusMode: 'custom',
             customPromptText: customText 
         }, () => {
             saveCustomBtn.textContent = "Saved ✓";
             setTimeout(() => saveCustomBtn.textContent = "Save & Apply", 3000);
+            updatePowerUI(true);
             reloadActiveTab();
         });
     });
@@ -116,10 +124,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isActive) {
             powerBtn.textContent = "Turn OFF";
             powerBtn.className = "on";
+            setModeButtonsEnabled(true);
         } else {
             powerBtn.textContent = "Turn ON";
             powerBtn.className = "off";
+            setModeButtonsEnabled(false);
         }
+    }
+
+    function setModeButtonsEnabled(enabled) {
+        buttons.forEach(btn => {
+            if (enabled) {
+                btn.classList.remove('disabled');
+                btn.disabled = false;
+            } else {
+                btn.classList.add('disabled');
+                btn.disabled = true;
+            }
+        });
     }
 
     function reloadActiveTab() {

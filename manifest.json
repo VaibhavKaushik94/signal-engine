@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Feed Filter MVP",
+  "name": "Signal Engine",
   "version": "1.0",
-  "description": "Client-side DOM interceptor for X.",
+  "description": "AI-powered social media feed filter",
   "permissions": [
     "storage",
     "tabs"
@@ -19,7 +19,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Feed Filter Settings"
+    "default_title": "Signal Engine Settings"
   },
   "content_scripts": [
     {
