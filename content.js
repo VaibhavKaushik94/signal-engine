@@ -167,4 +167,4 @@ initialTextElements.forEach(textEl => {
     }
 });
 
-console.log(`🚀 Feed Filter Radar Sweeping: ${currentHost}`);
+console.log(`🚀 Signal Engine Radar Sweeping: ${currentHost}`);

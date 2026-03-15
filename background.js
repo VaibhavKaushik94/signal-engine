@@ -1,4 +1,4 @@
-// Background service worker for Feed Filter
+// Background service worker for Signal Engine
 
 import { MODE_PROMPTS } from './constants.js';
 import { CONFIG } from './config.js';
