@@ -49,11 +49,27 @@ async function analyzeContent(text) {
     return new Promise((resolve) => {
         chrome.runtime.sendMessage({ action: "analyzeContent", text: text }, (response) => {
             if (chrome.runtime.lastError || !response) {
-                resolve(true); 
+                resolve({ isProductive: true, label: 'ALLOWED' });
             } else {
-                resolve(response.isProductive);
+                resolve({ isProductive: response.isProductive, label: response.label || (response.isProductive ? 'ALLOWED' : 'BLOCKED') });
             }
         });
+    });
+}
+
+function incrementMetric(metric) {
+    chrome.storage.local.get(['totalScanned', 'totalAllowed', 'totalBlocked'], (result) => {
+        const totals = {
+            totalScanned: result.totalScanned || 0,
+            totalAllowed: result.totalAllowed || 0,
+            totalBlocked: result.totalBlocked || 0
+        };
+
+        if (metric === 'scanned') totals.totalScanned += 1;
+        if (metric === 'allowed') totals.totalAllowed += 1;
+        if (metric === 'blocked') totals.totalBlocked += 1;
+
+        chrome.storage.local.set(totals);
     });
 }
 
@@ -114,23 +130,54 @@ async function processPost(containerNode, textElement) {
     
     if (postText.length < CONFIG.minPostLength) {
         eradicateNode(containerNode);
+        incrementMetric('blocked');
+        incrementMetric('scanned');
         return;
     }
 
+    incrementMetric('scanned');
     containerNode.style.setProperty('opacity', '0.3', 'important'); 
     containerNode.style.setProperty('transition', 'all 0.3s ease', 'important');
 
-    const isProductive = await analyzeContent(postText);
+    const result = await analyzeContent(postText);
+    const isProductive = result.isProductive;
+    const label = result.label;
+
+    const focusMode = await new Promise((resolve) => {
+        chrome.storage.local.get(['focusMode'], (res) => {
+            resolve(res.focusMode || 'software');
+        });
+    });
+
+    if (focusMode === 'classify') {
+        if (isProductive) {
+            incrementMetric('allowed');
+            containerNode.style.setProperty('opacity', '1', 'important');
+            containerNode.style.setProperty('border-left', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
+            containerNode.style.setProperty('background-color', 'rgba(16, 185, 129, 0.07)', 'important');
+            containerNode.dataset.signalEngineLabel = label;
+        } else {
+            incrementMetric('blocked');
+            containerNode.style.setProperty('opacity', '0.6', 'important');
+            containerNode.style.setProperty('border-left', '5px solid #ef4444', 'important');
+            containerNode.style.setProperty('background-color', 'rgba(220, 38, 38, 0.08)', 'important');
+            containerNode.dataset.signalEngineLabel = label;
+            // Do not remove in classify mode
+        }
+        return;
+    }
 
     if (isProductive) {
-        // Mark as KEEP (Outer Card)
+        // Mark as ALLOWED (Outer Card)
+        incrementMetric('allowed');
         containerNode.style.setProperty('opacity', '1', 'important');
         containerNode.style.setProperty('border-left', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
         containerNode.style.setProperty('padding-left', '12px', 'important');
         containerNode.style.setProperty('background-color', 'rgba(16, 185, 129, 0.03)', 'important');
         containerNode.style.setProperty('pointer-events', 'auto', 'important'); 
     } else {
-        // TRASH (Outer Card completely vanishes)
+        // BLOCKED (Outer Card completely vanishes)
+        incrementMetric('blocked');
         eradicateNode(containerNode); 
     }
 }

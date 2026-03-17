@@ -23,7 +23,7 @@ A lightweight Chrome extension that filters social media feeds (X/Twitter, Linke
 ### Key files
 
 - `manifest.json` — Chrome extension manifest (MV3)
-- `background.js` — service worker that sends text to Ollama and decides KEEP/TRASH
+- `background.js` — service worker that sends text to Ollama and decides ALLOWED/BLOCKED
 - `content.js` — DOM observer & post filtering logic
 - `popup.html` / `popup.js` — extension UI for mode selection + status
 - `config.js` — shared constants/configuration values
@@ -36,40 +36,31 @@ A lightweight Chrome extension that filters social media feeds (X/Twitter, Linke
 ### Prerequisites
 
 - Chrome (or Chromium-based browser) with extension loading enabled
-- Ollama installed and running locally (required for AI filtering)
+- Ollama installed and running locally (recommended) or a compatible cloud endpoint
 
-### Install Ollama
-
-1. Visit https://ollama.ai/ and follow the installation instructions for macOS.
-2. Verify installation:
-   ```bash
-   ollama --version
-   ```
-
-### Download / Pull the `phi3` model
-
-Ollama uses local models. Pull the required model before using the extension:
+### Quick start (Unix/Linux)
 
 ```bash
-ollama pull phi3
+chmod +x setup.sh
+./setup.sh
 ```
 
-### Run Ollama with CORS enabled (if needed)
+### Quick start (Windows PowerShell)
 
-If you see CORS errors when Chrome tries to call Ollama, start Ollama with CORS allowed:
-
-```bash
-ollama serve --host 127.0.0.1 --port 11434 --cors
+```powershell
+pwsh .\setup.ps1
 ```
 
-If you still see CORS issues, you can allow all origins before running Ollama:
+### Manual setup (optional)
 
-```bash
-export OLLAMA_ORIGIN="*"
-ollama serve --host 127.0.0.1 --port 11434 --cors
-```
-
-> If `--cors` isn't supported in your version, run on localhost and ensure the extension has `host_permissions` for `http://localhost:11434/*` (already configured in `manifest.json`).
+1. Install Ollama (macOS):
+   - `brew install ollama`
+   - Verify with `ollama --version`
+2. Pull the required model:
+   - `ollama pull phi3`
+3. Run Ollama with CORS and open origin allowed:
+   - `export OLLAMA_ORIGIN='*'`
+   - `ollama serve --host 127.0.0.1 --port 11434 --cors`
 
 ### Load into Chrome
 
@@ -77,6 +68,30 @@ ollama serve --host 127.0.0.1 --port 11434 --cors
 2. Enable **Developer mode** (top right)
 3. Click **Load unpacked**
 4. Select this project folder (`feed-filter-mvp`)
+
+### Cloud vs Local mode
+
+- In popup UI, choose **Local Ollama** or **Cloud API**.
+- For cloud, set a separate `apiEndpoint`, e.g., `https://your-service-host.com`.
+
+### Metrics
+
+The popup displays:
+- scanned posts
+- allowed posts
+- blocked posts
+
+### Tagging for release
+
+Use this sequence to tag version 1.0:
+
+```bash
+git add .
+git commit -m "chore: release v1.0"
+git tag -a v1.0 -m "Signal Engine v1.0"
+git push origin main --tags
+```
+
 
 ---
 

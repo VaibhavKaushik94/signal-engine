@@ -6,31 +6,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveCustomBtn = document.getElementById('save-custom-btn');
     const statusContainer = document.getElementById('status-container');
     const statusText = document.getElementById('status-text');
+    const metricScanned = document.getElementById('metric-scanned');
+    const metricAllowed = document.getElementById('metric-allowed');
+    const metricBlocked = document.getElementById('metric-blocked');
 
-    // 🔥 NEW: Ollama Heartbeat Ping
+    // 🔥 NEW: Ollama/Cloud Heartbeat & Model ping
     async function checkOllama() {
+        const endpoint = 'http://localhost:11434';
+        const statusUrl = endpoint.replace(/\/$/, '') + '/';
+        const modelsUrl = endpoint.replace(/\/$/, '') + '/models';
+
         try {
-            // Ping the default Ollama API root
-            const response = await fetch("http://localhost:11434/", { method: "GET" });
-            if (response.ok) {
-                statusContainer.className = "online";
-                statusText.textContent = "AI Engine: Online";
-            } else {
-                throw new Error("Bad response");
+            const resp = await fetch(statusUrl, { method: 'GET' });
+            if (!resp.ok) throw new Error('Bad response');
+
+            statusContainer.className = 'online';
+            statusText.textContent = 'AI Engine: Local Ollama online';
+
+            const modelsResp = await fetch(modelsUrl, { method: 'GET' });
+            if (modelsResp.ok) {
+                const modelsData = await modelsResp.json();
+                const hasPhi3 = Array.isArray(modelsData) ? modelsData.some(m => m.name === 'phi3') : !!modelsData?.find?.(m => m.name === 'phi3');
+                if (hasPhi3) {
+                    statusText.textContent = `${statusText.textContent} (phi3 OK)`;
+                } else {
+                    statusText.textContent = `${statusText.textContent} (phi3 missing)`;
+                }
             }
         } catch (error) {
-            statusContainer.className = "offline";
-            statusText.textContent = "AI Engine: Offline (Start Ollama)";
+            statusContainer.className = 'offline';
+            statusText.textContent = 'AI Engine: Local Ollama unreachable';
         }
     }
+
+    // Load metrics and refresh status
+    chrome.storage.local.get(['totalScanned', 'totalAllowed', 'totalBlocked'], (result) => {
+        metricScanned.textContent = result.totalScanned || 0;
+        metricAllowed.textContent = result.totalAllowed || 0;
+        metricBlocked.textContent = result.totalBlocked || 0;
+    });
 
     // Run the check as soon as the menu opens
     checkOllama();
 
     // Check for AI errors
     chrome.storage.local.get(['aiError'], (result) => {
-        if (result.aiError && statusContainer.className === "online") {
-            statusText.textContent = "AI Engine: Online (Error occurred - showing all posts)";
+        if (result.aiError && statusContainer.className === 'online') {
+            statusText.textContent = 'AI Engine: Online (Error occurred - showing all posts)';
         }
     });
 
@@ -101,6 +123,27 @@ document.addEventListener('DOMContentLoaded', () => {
             reloadActiveTab();
         });
     });
+
+    function updateMetrics() {
+        chrome.storage.local.get(['totalScanned', 'totalAllowed', 'totalBlocked'], (result) => {
+            const scanned = result.totalScanned || 0;
+            const allowed = result.totalAllowed || 0;
+            const blockedDerived = Math.max(0, scanned - allowed);
+
+            metricScanned.textContent = scanned;
+            metricAllowed.textContent = allowed;
+            metricBlocked.textContent = blockedDerived;
+        });
+    }
+
+    // Refresh metrics in real time when storage changes
+    chrome.storage.onChanged.addListener((changes) => {
+        if (changes.totalScanned || changes.totalAllowed || changes.totalBlocked) {
+            updateMetrics();
+        }
+    });
+
+    updateMetrics();
 
     // --- Helper Functions ---
     function updateModeUI(activeMode) {

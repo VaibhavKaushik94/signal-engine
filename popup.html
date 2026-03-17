@@ -42,6 +42,21 @@
   <div id="status-container" class="offline">
     <div><span class="status-dot"></span><span id="status-text">Checking Local AI...</span></div>
   </div>
+
+  <div id="metrics-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px; text-align: center;">
+      <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Scanned</div>
+      <div id="metric-scanned" style="font-size: 18px; font-weight: 700; color: #f8fafc;">0</div>
+    </div>
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px; text-align: center;">
+      <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Allowed</div>
+      <div id="metric-allowed" style="font-size: 18px; font-weight: 700; color: #10b981;">0</div>
+    </div>
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px; text-align: center;">
+      <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Blocked</div>
+      <div id="metric-blocked" style="font-size: 18px; font-weight: 700; color: #ef4444;">0</div>
+    </div>
+  </div>
   
   <button class="mode-btn" data-mode="software">
     <span class="mode-title">Software & Cyber</span>
@@ -54,6 +69,11 @@
   <button class="mode-btn" data-mode="custom">
     <span class="mode-title"> Custom Filter</span>
     <span class="mode-desc">Define your own rules.</span>
+  </button>
+
+  <button class="mode-btn" data-mode="classify">
+    <span class="mode-title"> Classification</span>
+    <span class="mode-desc">Label posts without removing them.</span>
   </button>
 
   <div id="custom-container">

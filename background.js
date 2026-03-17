@@ -18,51 +18,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 USER'S CUSTOM RULE: "${userRules}"
                 
                 Evaluate the following social media post text strictly against the user's custom rule.
-                - If the text explicitly and highly aligns with the user's custom rule, output exactly: KEEP
-                - If it is irrelevant, off-topic, generic, or only loosely related, output exactly: TRASH
+                - If the text explicitly and highly aligns with the user's custom rule, output exactly: ALLOWED
+                - If it is irrelevant, off-topic, generic, or only loosely related, output exactly: BLOCKED
                 
-                Output EXACTLY ONE WORD: KEEP or TRASH. No explanations.`;
+                Output EXACTLY ONE WORD: ALLOWED or BLOCKED. No explanations.`;
             } else {
                 // Standard preset prompt
                 const modeInstructions = MODE_PROMPTS[currentMode] || MODE_PROMPTS['software'];
                 systemPrompt = `You are a ruthless content filter. ${modeInstructions}
                 Evaluate the following text. 
-                - If it strictly matches your allowed topics, output exactly: KEEP
-                - If it does not match, or is generic, output exactly: TRASH
+                - If it strictly matches your allowed topics, output exactly: ALLOWED
+                - If it does not match, or is generic, output exactly: BLOCKED
                 Output EXACTLY ONE WORD. No explanations.`;
             }
 
-            fetch("http://localhost:11434/api/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "phi3:latest", 
-                    prompt: `${systemPrompt}\n\nPost text: "${request.text}"`,
-                    stream: false,
-                    options: { temperature: 0.0, num_predict: CONFIG.numPredict }
+            chrome.storage.local.get(['apiSource', 'apiEndpoint'], (sourceResult) => {
+                const source = sourceResult.apiSource || 'local';
+                const baseUrl = (source === 'cloud' && sourceResult.apiEndpoint) ? sourceResult.apiEndpoint.replace(/\/$/, '') : 'http://localhost:11434';
+                const url = `${baseUrl}/api/generate`;
+
+                fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "phi3:latest", 
+                        prompt: `${systemPrompt}\n\nPost text: "${request.text}"`,
+                        stream: false,
+                        options: { temperature: 0.0, num_predict: CONFIG.numPredict }
+                    })
                 })
-            })
-            .then(async (response) => {
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                const rawResponse = data.response.trim().toUpperCase();
-                console.log(`[Mode: ${currentMode.toUpperCase()}] AI Output: "${rawResponse}"`);
-                
-                // Look for KEEP instead of PRODUCTIVE
-                const isProductive = rawResponse.includes("KEEP");
-                sendResponse({ isProductive: isProductive });
-                chrome.storage.local.set({ 'aiError': false });
-            })
-            .catch(error => {
-                console.error("[Background] Connect failed:", error);
-                chrome.storage.local.set({ 'aiError': true });
-                sendResponse({ isProductive: true }); 
+                .then(async (response) => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    const rawResponse = data.response.trim().toUpperCase();
+                    console.log(`[Mode: ${currentMode.toUpperCase()}] AI Output: "${rawResponse}"`);
+                    
+                    // Look for ALLOWED instead of PRODUCTIVE
+                    const isProductive = rawResponse.includes("ALLOWED") || rawResponse.includes("KEEP");
+                    const label = isProductive ? "ALLOWED" : "BLOCKED";
+                    sendResponse({ isProductive: isProductive, label: label });
+                    chrome.storage.local.set({ 'aiError': false });
+                })
+                .catch(error => {
+                    console.error("[Background] Connect failed:", error);
+                    chrome.storage.local.set({ 'aiError': true });
+                    sendResponse({ isProductive: true }); 
+                });
             });
         });
 
-        return true; 
+        return true;
     }
 });
 
