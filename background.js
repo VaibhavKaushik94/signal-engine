@@ -3,6 +3,19 @@
 import { MODE_PROMPTS } from './constants.js';
 import { CONFIG } from './config.js';
 
+function parseAIResponse(rawResponse) {
+    const normalized = (rawResponse || '').toUpperCase().replace(/[^A-Z]/g, ' ').trim();
+    const tokens = normalized.split(/\s+/);
+
+    if (tokens.includes('ALLOWED')) return { isProductive: true, label: 'ALLOWED' };
+    if (tokens.includes('BLOCKED')) return { isProductive: false, label: 'BLOCKED' };
+    if (tokens.includes('KEEP')) return { isProductive: true, label: 'ALLOWED' };
+    if (tokens.includes('DROP') || tokens.includes('LOW') || tokens.includes('NO')) return { isProductive: false, label: 'BLOCKED' };
+
+    // FAIL-OPEN pattern in case of parser confusion: keep safe default which avoids removing legitimate posts
+    return { isProductive: true, label: 'ALLOWED' };
+}
+
 // --- 2. MAIN AI INTERCEPTOR ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "analyzeContent") {
@@ -14,14 +27,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // 🔥 NEW: Dedicated, ultra-strict prompt template for Custom Mode
             if (currentMode === 'custom') {
                 const userRules = result.customPromptText || "Technology and Science";
-                systemPrompt = `You are a ruthless binary content filter. 
+                systemPrompt = `You are a ruthless but precise binary content filter.
                 USER'S CUSTOM RULE: "${userRules}"
-                
-                Evaluate the following social media post text strictly against the user's custom rule.
-                - If the text explicitly and highly aligns with the user's custom rule, output exactly: ALLOWED
-                - If it is irrelevant, off-topic, generic, or only loosely related, output exactly: BLOCKED
-                
-                Output EXACTLY ONE WORD: ALLOWED or BLOCKED. No explanations.`;
+
+                Evaluate only the provided main post text. Ignore the idea of related replies or nested comments.
+                - If the text strictly aligns with the user's custom rule, output exactly: ALLOWED
+                - If it is off-topic, irrelevant, generic, or loosely related, output exactly: BLOCKED
+                - If you cannot decide, choose BLOCKED (prioritize user-focus quality).
+
+                Output EXACTLY ONE WORD: ALLOWED or BLOCKED. Do not include any additional text.`;
             } else {
                 // Standard preset prompt
                 const modeInstructions = MODE_PROMPTS[currentMode] || MODE_PROMPTS['software'];
@@ -52,13 +66,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     return response.json();
                 })
                 .then(data => {
-                    const rawResponse = data.response.trim().toUpperCase();
+                    const rawResponse = (data.response || "").trim();
                     console.log(`[Mode: ${currentMode.toUpperCase()}] AI Output: "${rawResponse}"`);
-                    
-                    // Look for ALLOWED instead of PRODUCTIVE
-                    const isProductive = rawResponse.includes("ALLOWED") || rawResponse.includes("KEEP");
-                    const label = isProductive ? "ALLOWED" : "BLOCKED";
-                    sendResponse({ isProductive: isProductive, label: label });
+
+                    const parseResult = parseAIResponse(rawResponse);
+                    sendResponse({ isProductive: parseResult.isProductive, label: parseResult.label });
                     chrome.storage.local.set({ 'aiError': false });
                 })
                 .catch(error => {

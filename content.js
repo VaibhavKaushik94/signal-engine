@@ -123,9 +123,28 @@ function getTrueContainer(textEl) {
     return textEl.parentElement?.parentElement || textEl;
 }
 
+function isProbablyComment(containerNode) {
+    if (!containerNode) return false;
+    const classNames = (containerNode.className || '').toString().toLowerCase();
+    if (classNames.includes('reply') || classNames.includes('comment') || classNames.includes('thread') || classNames.includes('replies')) {
+        return true;
+    }
+
+    const badSelectors = ['.comments', '.comment-item', '.replies', '[data-testid="reply"]', '[data-testid="comment"]'];
+    for (const selector of badSelectors) {
+        if (containerNode.closest(selector)) return true;
+    }
+
+    return false;
+}
+
 async function processPost(containerNode, textElement) {
     if (!isExtensionActive) return;
-    
+
+    if (isProbablyComment(containerNode)) {
+        return; // skip comments/replies from filtering pipeline
+    }
+
     const postText = textElement.innerText.trim();
     
     if (postText.length < CONFIG.minPostLength) {

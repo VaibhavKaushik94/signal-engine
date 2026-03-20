@@ -67,6 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateModeUI(currentMode);
         updatePowerUI(isActive);
+
+        if (currentMode === 'custom') {
+            statusText.textContent = 'AI Engine: Local Ollama (custom filter active)';
+        }
     });
 
     // 2. Power Button Logic
@@ -91,12 +95,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (mode === 'custom') {
-                // Just update UI to show the box, don't reload tab yet
-                updateModeUI(mode);
+                // Set custom mode so we evaluate with custom prompt immediately
+                chrome.storage.local.set({ focusMode: 'custom' }, () => {
+                    updateModeUI('custom');
+                    customContainer.classList.add('visible');
+                    statusText.textContent = 'AI Engine: Local Ollama (custom filter active)';
+                    reloadActiveTab();
+                });
             } else {
                 // Save and apply immediately for presets
                 chrome.storage.local.set({ focusMode: mode }, () => {
                     updateModeUI(mode);
+                    statusText.textContent = `AI Engine: Local Ollama online (${mode})`;
                     reloadActiveTab();
                 });
             }
@@ -117,8 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
             focusMode: 'custom',
             customPromptText: customText 
         }, () => {
-            saveCustomBtn.textContent = "Saved ✓";
+            saveCustomBtn.textContent = "Saved";
             setTimeout(() => saveCustomBtn.textContent = "Save & Apply", 3000);
+            updateModeUI('custom');
             updatePowerUI(true);
             reloadActiveTab();
         });
@@ -188,14 +199,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function reloadActiveTab() {
-        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (tabs && tabs.length > 0) {
-                const tab = tabs[0];
-                // If Chrome hides the URL, or if it matches our sites, force reload
-                if (!tab.url || tab.url.match(/x\.com|twitter\.com|linkedin\.com|youtube\.com/)) {
-                    chrome.tabs.reload(tab.id);
+        try {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs && tabs.length > 0) {
+                    const tab = tabs[0];
+                    // If Chrome hides the URL, or if it matches our sites, force reload
+                    if (!tab.url || tab.url.match(/x\.com|twitter\.com|linkedin\.com|youtube\.com/)) {
+                        chrome.tabs.reload(tab.id, () => {
+                            if (chrome.runtime.lastError) {
+                                console.warn('Signal Engine reload warning:', chrome.runtime.lastError.message);
+                            }
+                        });
+                    }
                 }
-            }
-        });
+            });
+        } catch (err) {
+            console.warn('Signal Engine reloadActiveTab exception:', err);
+        }
     }
 });

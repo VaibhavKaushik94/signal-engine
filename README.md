@@ -116,6 +116,13 @@ git push origin main --tags
 
 - Reload the extension in `chrome://extensions` after editing source files.
 - Use Chrome DevTools (Console) to view logging from `background.js` and `content.js`.
+- Run the prompt accuracy harness:
+
+```bash
+node prompt_tests.js
+```
+
+This script exercises sample posts in each mode (software/hardware/finance/custom) and validates Ollama output against expected labels. It should help prove quality and identify prompt drift quickly.
 
 ---
 
