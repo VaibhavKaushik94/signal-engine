@@ -1,3 +1,5 @@
+![Signal Engine banner](assets/banner.png)
+
 # Signal Engine (Chrome Extension)
 
 A lightweight Chrome extension that filters social media feeds (X/Twitter, LinkedIn, YouTube) using a local AI service (Ollama). It hides posts that don’t match the selected content focus (software, hardware, finance, or a custom filter).

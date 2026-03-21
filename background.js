@@ -27,15 +27,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // 🔥 NEW: Dedicated, ultra-strict prompt template for Custom Mode
             if (currentMode === 'custom') {
                 const userRules = result.customPromptText || "Technology and Science";
-                systemPrompt = `You are a ruthless but precise binary content filter.
+                systemPrompt = `You are a binary content filter.
                 USER'S CUSTOM RULE: "${userRules}"
 
-                Evaluate only the provided main post text. Ignore the idea of related replies or nested comments.
-                - If the text strictly aligns with the user's custom rule, output exactly: ALLOWED
-                - If it is off-topic, irrelevant, generic, or loosely related, output exactly: BLOCKED
-                - If you cannot decide, choose BLOCKED (prioritize user-focus quality).
+                Evaluate only the provided post text. 
+                - If the text strictly and directly matches the user's rule, output: ALLOWED
+                - If it is loose, partial, generic, or off-topic, output: BLOCKED
+                - Do not use 'creative' logic; be extremely narrow in interpretation.
 
-                Output EXACTLY ONE WORD: ALLOWED or BLOCKED. Do not include any additional text.`;
+                Output EXACTLY ONE WORD: ALLOWED or BLOCKED.`;
             } else {
                 // Standard preset prompt
                 const modeInstructions = MODE_PROMPTS[currentMode] || MODE_PROMPTS['software'];
@@ -67,7 +67,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 })
                 .then(data => {
                     const rawResponse = (data.response || "").trim();
-                    console.log(`[Mode: ${currentMode.toUpperCase()}] AI Output: "${rawResponse}"`);
+                    // console.log(`[Mode: ${currentMode.toUpperCase()}] AI Output: "${rawResponse}"`);
 
                     const parseResult = parseAIResponse(rawResponse);
                     sendResponse({ isProductive: parseResult.isProductive, label: parseResult.label });
@@ -101,10 +101,16 @@ function updateBadge() {
             if (mode === 'hardware') text = "HW";
             if (mode === 'finance') text = "FIN";
             
-            // 🔥 NEW: Catch the custom mode and change the icon
+            // Catch custom mode
             if (mode === 'custom') {
                 text = "CU";
                 color = "#3b82f6"; // Blue to indicate Custom
+            }
+
+            // Catch classification mode
+            if (mode === 'classify') {
+                text = "CL";
+                color = "#8b5cf6"; // Purple for classification
             }
             
             chrome.action.setBadgeText({ text: text });

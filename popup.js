@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check for AI errors
     chrome.storage.local.get(['aiError'], (result) => {
         if (result.aiError && statusContainer.className === 'online') {
-            statusText.textContent = 'AI Engine: Online (Error occurred - showing all posts)';
+            statusText.textContent = 'AI Engine: Service Warning (Falling back to unfiltered)';
         }
     });
 

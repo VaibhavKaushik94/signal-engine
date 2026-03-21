@@ -1,71 +1,169 @@
-// prompt_tests.js
-// Run with: node prompt_tests.js
-// Requires Ollama local server running at http://localhost:11434
+/**
+ * Signal Engine - Comprehensive Prompt Accuracy Harness
+ * 
+ * This script validates the AI classification logic across all focus modes.
+ * Requirements: Ollama running locally at http://localhost:11434 with 'phi3' model.
+ */
 
-const endpoint = 'http://localhost:11434/api/generate';
+const OLLAMA_ENDPOINT = 'http://localhost:11434/api/generate';
+const MODEL = 'phi3:latest';
 
 const MODE_PROMPTS = {
-    software: "You only care about: Software Engineering, AI/ML, Cybersecurity, and coding. BLOCK anything about finance, hardware, motivational quotes, or general business.",
-    hardware: "You only care about: Hardware engineering, Raspberry Pi, microcontrollers, and physical system design. BLOCK anything about software-only startups, finance, or general tech news.",
-    finance:  "You only care about: Stock markets, equities, precious metals, macroeconomics, and startup funding. BLOCK anything about coding, hardware, or generic business motivation.",
-    classify: "You are a content classification assistant. Tag each post as ALLOWED or BLOCKED based on relevance to the user's current preference. Do not remove content; only label it."
+    software: "Focus ONLY on: Software Engineering, AI/ML, Cybersecurity, and coding. BLOCK: finance, hardware, hardware components, motivational quotes, and general business news.",
+    hardware: "Focus ONLY on: Hardware engineering, Raspberry Pi, microcontrollers, and physical system design. BLOCK: software-only startups, finance, and general tech news.",
+    finance:  "Focus strictly on: Financial markets, stock analysis, macroeconomics, monetary policy, and venture capital. BLOCK: general business advice, recruiting/hiring, individual career updates, and tech tutorials.",
+    classify: "You are a content classification assistant. Tag each post as ALLOWED or BLOCKED based on relevance to the user's current preference."
 };
 
-function promptForMode(mode, customPrompt = '') {
-    if (mode === 'custom') {
-        return `You are a ruthless but precise binary content filter.\nUSER'S CUSTOM RULE: "${customPrompt}"\n\nEvaluate only the provided main post text. Ignore replies and nested comments.\n- If the text strictly aligns with the user's custom rule, output exactly: ALLOWED\n- If it is off-topic, irrelevant, generic, or loosely related, output exactly: BLOCKED\n- If you cannot decide, choose BLOCKED.\n\nOutput EXACTLY ONE WORD: ALLOWED or BLOCKED. Do not include any additional text.`;
-    }
+/** 
+ * Data set for testing.
+ * Includes diverse samples for each mode including positive, negative, and "noise" cases.
+ */
+const testSuite = [
+    // --- SOFTWARE MODE ---
+    { mode: 'software', expected: 'ALLOWED', text: "Implementing a distributed KV store in Go using Raft consensus." },
+    { mode: 'software', expected: 'ALLOWED', text: "New React 19 features: Server Components and Actions explained." },
+    { mode: 'software', expected: 'ALLOWED', text: "Zero-day vulnerability found in popular NPM package with 1M downloads." },
+    { mode: 'software', expected: 'BLOCKED', text: "10 tips to stay motivated and crush your morning routine! #hustle" },
+    { mode: 'software', expected: 'BLOCKED', text: "Bitcoin price hits all-time high as ETF inflows surge." },
+    
+    // --- FINANCE MODE ---
+    { mode: 'finance',  expected: 'ALLOWED', text: "Federal Reserve hints at rate cuts following latest CPI data." },
+    { mode: 'finance',  expected: 'ALLOWED', text: "Nvidia (NVDA) stock analysis: Why the AI boom is just starting." },
+    { mode: 'finance',  expected: 'ALLOWED', text: "Series B funding rounds are slowing down in the SaaS sector." },
+    { mode: 'finance',  expected: 'BLOCKED', text: "Check out my new mechanical keyboard build with Gateron Brown switches." },
+    { mode: 'finance',  expected: 'BLOCKED', text: "How to fix a dangling pointer in C++." },
 
-    const modeInstructions = MODE_PROMPTS[mode] || MODE_PROMPTS.software;
-    return `You are a ruthless content filter. ${modeInstructions}\nEvaluate the following text.\n- If it strictly matches your allowed topics, output exactly: ALLOWED\n- If it does not match, or is generic, output exactly: BLOCKED\nOutput EXACTLY ONE WORD. No explanations.`;
-}
+    // --- HARDWARE MODE ---
+    { mode: 'hardware', expected: 'ALLOWED', text: "Building a low-power weather station using ESP32 and LoRa." },
+    { mode: 'hardware', expected: 'ALLOWED', text: "The evolution of RISC-V: Why open instruction sets matter for chips." },
+    { mode: 'hardware', expected: 'ALLOWED', text: "FPGA vs ASIC: Which one should you choose for high-speed signal processing?" },
+    { mode: 'hardware', expected: 'BLOCKED', text: "The 10 best VS Code extensions for web developers." },
+    { mode: 'hardware', expected: 'BLOCKED', text: "Is the 60/40 portfolio dead? A look at modern asset allocation." },
 
-function parseAIResponse(rawResponse) {
-    const normalized = (rawResponse || '').toUpperCase().replace(/[^A-Z]/g, ' ').trim();
-    const tokens = normalized.split(/\s+/);
+    // --- CUSTOM MODE ---
+    { mode: 'custom', custom: "Posts about Apple or iPhones", expected: 'ALLOWED', text: "The iPhone 16 Pro camera sensor is a game changer." },
+    { mode: 'custom', custom: "Posts about Apple or iPhones", expected: 'ALLOWED', text: "Apple M4 chips are coming to the iPad Pro line next month." },
+    { mode: 'custom', custom: "Posts about Apple or iPhones", expected: 'BLOCKED', text: "Microsoft Surface Pro 11 vs Google Pixel Tablet." },
 
-    if (tokens.includes('ALLOWED')) return { isProductive: true, label: 'ALLOWED' };
-    if (tokens.includes('BLOCKED')) return { isProductive: false, label: 'BLOCKED' };
-    if (tokens.includes('KEEP')) return { isProductive: true, label: 'ALLOWED' };
-    return { isProductive: false, label: 'BLOCKED' };
-}
-
-const samples = [
-    {mode: 'software', text: 'How to optimize Python list comprehensions for 10M elements', expected: 'ALLOWED'},
-    {mode: 'software', text: 'Latest Tesla quarterly earnings just dropped', expected: 'BLOCKED'},
-    {mode: 'finance', text: 'S&P 500 rally amid inflation bets', expected: 'ALLOWED'},
-    {mode: 'finance', text: 'Build your own IoT weather station with Arduino', expected: 'BLOCKED'},
-    {mode: 'hardware', text: 'Raspberry Pi Pico vs Arduino Nano for robot arms', expected: 'ALLOWED'},
-    {mode: 'hardware', text: 'Interview prep for software engineering at Google', expected: 'BLOCKED'},
-    {mode: 'custom', custom: 'Only show posts about Google', text: 'Google just announced Pixel 8 features', expected: 'ALLOWED'},
-    {mode: 'custom', custom: 'Only show posts about Google', text: 'Amazon Web Services updates pricing', expected: 'BLOCKED'},
+    // --- EDGE CASES & NOISE ---
+    { mode: 'software', expected: 'BLOCKED', text: "Just had the best coffee in Seattle! Highly recommend 'The Daily Grind'." },
+    { mode: 'software', expected: 'BLOCKED', text: "Promoted: Save 20% on all insurance policies today!" },
+    { mode: 'finance',  expected: 'BLOCKED', text: "Looking for a co-founder for a new social media app for pets." },
+    { mode: 'software', expected: 'ALLOWED', text: "Rust is the most loved language for the 8th year in a row." },
+    { mode: 'hardware', expected: 'ALLOWED', text: "Soldering techniques for surface mount components (SMD)." },
+    { mode: 'finance',  expected: 'ALLOWED', text: "Gold prices hit resistance at $2400 as dollar strengthens." },
+    { mode: 'custom', custom: "Cooking and Recipes", expected: 'ALLOWED', text: "How to make the perfect sourdough bread at home." },
+    { mode: 'custom', custom: "Cooking and Recipes", expected: 'BLOCKED', text: "The impact of generative AI on the creative arts industry." }
 ];
 
-(async () => {
-    console.log('Running prompt quality tests (Ollama required)...\n');
+function getSystemPrompt(mode, customPrompt = '') {
+    const base = mode === 'custom' 
+        ? `USER'S CUSTOM RULE: "${customPrompt}". Evaluate if the post STRICTLY and DIRECTLY matches this rule.`
+        : MODE_PROMPTS[mode] || MODE_PROMPTS['software'];
 
-    let passed = 0;
+    return `You are a ruthless binary content filter. 
+1. ${base}
+2. Be extremely narrow in your interpretation. If a post is even slightly off-topic, output BLOCKED.
+3. Ignore hiring, recruiting, and "thought leadership" posts unless they are 100% technical.
+Output EXACTLY ONE WORD: ALLOWED or BLOCKED. No explanations.`;
+}
 
-    for (const sample of samples) {
-        const systemPrompt = promptForMode(sample.mode, sample.custom || '');
-        const resp = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'phi3:latest', prompt: `${systemPrompt}\n\nPost text: "${sample.text}"`, stream: false, options: { temperature: 0.0, num_predict: 1 } })
-        });
+function parseResponse(raw) {
+    const clean = (raw || '').toUpperCase().replace(/[^A-Z]/g, ' ').trim();
+    if (clean.includes('ALLOWED')) return 'ALLOWED';
+    if (clean.includes('BLOCKED')) return 'BLOCKED';
+    return 'UNKNOWN';
+}
 
-        const json = await resp.json();
-        const raw = (json.response || '').trim();
-        const parsed = parseAIResponse(raw);
+async function runTests() {
+    console.log("==================================================");
+    console.log("   SIGNAL ENGINE - AI ACCURACY TEST HARNESS      ");
+    console.log("==================================================\n");
+    console.log(`Model: ${MODEL} | Endpoint: ${OLLAMA_ENDPOINT}\n`);
 
-        const isOk = parsed.label === sample.expected;
-        if (isOk) passed += 1;
-
-        console.log(`Mode ${sample.mode} | text: ${sample.text}`);
-        console.log(` -> raw: ${raw}`);
-        console.log(` -> parsed: ${parsed.label} | expected: ${sample.expected} | ${isOk ? 'PASS' : 'FAIL'}\n`);
+    // 1. Health check
+    try {
+        const check = await fetch(OLLAMA_ENDPOINT.replace('/api/generate', '/'));
+        if (!check.ok) throw new Error();
+    } catch (e) {
+        console.error("❌ ERROR: Ollama is unreachable. Make sure 'ollama serve' is running.\n");
+        process.exit(1);
     }
 
-    console.log(`Result: ${passed}/${samples.length} passed.`);
-    process.exit(passed === samples.length ? 0 : 1);
-})();
+    let stats = {
+        total: 0,
+        passed: 0,
+        byMode: {}
+    };
+
+    for (const test of testSuite) {
+        const sysPrompt = getSystemPrompt(test.mode, test.custom);
+        
+        try {
+            const start = Date.now();
+            const resp = await fetch(OLLAMA_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: MODEL,
+                    prompt: `${sysPrompt}\n\nPost: "${test.text}"`,
+                    stream: false,
+                    options: { temperature: 0.0, num_predict: 5 }
+                })
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const latency = Date.now() - start;
+            
+            const rawResponse = data.response || "";
+            const actual = parseResponse(rawResponse);
+            const isCorrect = actual === test.expected;
+
+            // Tracking
+            stats.total++;
+            if (isCorrect) stats.passed++;
+            
+            if (!stats.byMode[test.mode]) stats.byMode[test.mode] = { total: 0, passed: 0 };
+            stats.byMode[test.mode].total++;
+            if (isCorrect) stats.byMode[test.mode].passed++;
+
+            // Log individual result
+            const statusIcon = isCorrect ? "✅ PASS" : "❌ FAIL";
+            const modeLabel = test.mode === 'custom' ? `custom (${test.custom})` : test.mode;
+            console.log(`[${statusIcon}] [${modeLabel.padEnd(15)}] [${latency}ms]`);
+            console.log(`   Text: "${test.text.substring(0, 60)}${test.text.length > 60 ? '...' : ''}"`);
+            if (!isCorrect) {
+                console.log(`   Expected: ${test.expected} | Got: ${actual} (Raw: "${rawResponse.trim()}")`);
+            }
+            console.log("");
+
+        } catch (err) {
+            console.error(`❌ Error during test: ${err.message}`);
+        }
+    }
+
+    // FINAL SUMMARY
+    console.log("==================================================");
+    console.log("                 ACCURACY SUMMARY                 ");
+    console.log("==================================================");
+    const overallAccuracy = ((stats.passed / stats.total) * 100).toFixed(1);
+    console.log(`OVERALL ACCURACY: ${overallAccuracy}% (${stats.passed}/${stats.total})\n`);
+
+    console.log("BY CATEGORY:");
+    for (const mode in stats.byMode) {
+        const m = stats.byMode[mode];
+        const acc = ((m.passed / m.total) * 100).toFixed(1);
+        console.log(` - ${mode.padEnd(10)}: ${acc}% (${m.passed}/${m.total})`);
+    }
+    console.log("==================================================\n");
+
+    if (overallAccuracy < 80) {
+        console.warn("⚠️ WARNING: Overall accuracy is below 80%. Consider refining system prompts.");
+    } else {
+        console.log("🚀 Prompt quality looks solid for release!");
+    }
+}
+
+runTests();

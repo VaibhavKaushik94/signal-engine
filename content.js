@@ -22,15 +22,11 @@ const PLATFORMS = {
         textSelector: '[data-testid="tweetText"]'
     },
     linkedin: {
-        // Added every known data attribute LinkedIn uses for outer wrappers
         containerSelector: '.feed-shared-update-v2, .occludable-update, [data-urn], [data-id], .update-components-update-v2, .profile-creator-shared-feed-update__container',
         textSelector: '[data-testid="expandable-text-box"], .update-components-text'
     },
-    // ✨ NEW: YouTube Integration ✨
     youtube: {
-        // Targets the main grid cards, search results, and sidebar recommendations
-        containerSelector: 'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer',
-        // Highly targeted to ONLY grab the actual video title, ignoring views and channel names
+        containerSelector: 'ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer',
         textSelector: 'h3 #video-title, a#video-title-link, h3 .yt-core-attributed-string'
     }
 };
@@ -76,7 +72,6 @@ function incrementMetric(metric) {
 function eradicateNode(node) {
     node.style.setProperty('display', 'none', 'important');
     node.style.setProperty('height', '0px', 'important');
-    // ✨ NEW: Crush the width and flexbox properties so the grid collapses ✨
     node.style.setProperty('width', '0px', 'important');
     node.style.setProperty('min-width', '0px', 'important');
     node.style.setProperty('max-width', '0px', 'important');
@@ -89,13 +84,10 @@ function eradicateNode(node) {
     node.style.setProperty('border', 'none', 'important');
 }
 
-// ✨ NEW: The Smart DOM Climber ✨
 function getTrueContainer(textEl) {
-    // 1. Try the standard targeted approach
     let container = textEl.closest(activePlatform.containerSelector);
     if (container) return container;
 
-    // 2. LinkedIn Fallback
     if (currentHost.includes('linkedin')) {
         let current = textEl;
         for (let i = 0; i < 7; i++) {
@@ -106,8 +98,6 @@ function getTrueContainer(textEl) {
         return current;
     }
     
-    // 3. ✨ NEW: YouTube Fallback ✨
-    // Keep climbing until we hit a custom YouTube "renderer" tag
     if (currentHost.includes('youtube')) {
         let current = textEl;
         while (current && current.tagName !== 'BODY') {
@@ -119,18 +109,25 @@ function getTrueContainer(textEl) {
         }
     }
     
-    // X / Default Fallback
     return textEl.parentElement?.parentElement || textEl;
 }
 
 function isProbablyComment(containerNode) {
     if (!containerNode) return false;
+    
+    // Explicitly target YouTube comments
+    if (currentHost.includes('youtube')) {
+        if (containerNode.closest('ytd-comment-thread-renderer, ytd-comment-renderer, #comments')) {
+            return true;
+        }
+    }
+
     const classNames = (containerNode.className || '').toString().toLowerCase();
     if (classNames.includes('reply') || classNames.includes('comment') || classNames.includes('thread') || classNames.includes('replies')) {
         return true;
     }
 
-    const badSelectors = ['.comments', '.comment-item', '.replies', '[data-testid="reply"]', '[data-testid="comment"]'];
+    const badSelectors = ['.comments', '.comment-item', '.replies', '[data-testid="reply"]', '[data-testid="comment"]', '.feed-shared-update-v2__comments-container'];
     for (const selector of badSelectors) {
         if (containerNode.closest(selector)) return true;
     }
@@ -142,7 +139,7 @@ async function processPost(containerNode, textElement) {
     if (!isExtensionActive) return;
 
     if (isProbablyComment(containerNode)) {
-        return; // skip comments/replies from filtering pipeline
+        return; 
     }
 
     const postText = textElement.innerText.trim();
@@ -169,25 +166,21 @@ async function processPost(containerNode, textElement) {
     });
 
     if (focusMode === 'classify') {
+        containerNode.style.setProperty('opacity', '1', 'important');
         if (isProductive) {
             incrementMetric('allowed');
-            containerNode.style.setProperty('opacity', '1', 'important');
-            containerNode.style.setProperty('border-left', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
+            containerNode.style.setProperty('border', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
             containerNode.style.setProperty('background-color', 'rgba(16, 185, 129, 0.07)', 'important');
-            containerNode.dataset.signalEngineLabel = label;
         } else {
             incrementMetric('blocked');
-            containerNode.style.setProperty('opacity', '0.6', 'important');
-            containerNode.style.setProperty('border-left', '5px solid #ef4444', 'important');
+            containerNode.style.setProperty('border', `${CONFIG.borderWidth} solid #ef4444`, 'important');
             containerNode.style.setProperty('background-color', 'rgba(220, 38, 38, 0.08)', 'important');
-            containerNode.dataset.signalEngineLabel = label;
-            // Do not remove in classify mode
         }
+        containerNode.dataset.signalEngineLabel = label;
         return;
     }
 
     if (isProductive) {
-        // Mark as ALLOWED (Outer Card)
         incrementMetric('allowed');
         containerNode.style.setProperty('opacity', '1', 'important');
         containerNode.style.setProperty('border-left', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
@@ -195,7 +188,6 @@ async function processPost(containerNode, textElement) {
         containerNode.style.setProperty('background-color', 'rgba(16, 185, 129, 0.03)', 'important');
         containerNode.style.setProperty('pointer-events', 'auto', 'important'); 
     } else {
-        // BLOCKED (Outer Card completely vanishes)
         incrementMetric('blocked');
         eradicateNode(containerNode); 
     }
@@ -223,7 +215,6 @@ const observer = new MutationObserver((mutations) => {
 
 observer.observe(document.body, { childList: true, subtree: true });
 
-// Initial scan
 const initialTextElements = document.querySelectorAll(activePlatform.textSelector);
 initialTextElements.forEach(textEl => {
     if (!textEl.hasAttribute('data-ai-analyzed')) {
@@ -232,5 +223,3 @@ initialTextElements.forEach(textEl => {
         processPost(outerContainer, textEl);
     }
 });
-
-console.log(`🚀 Signal Engine Radar Sweeping: ${currentHost}`);
