@@ -1,5 +1,9 @@
 # Signal Engine (Chrome Extension)
 
+[![GitHub stars](https://img.shields.io/github/stars/VaibhavKaushik94/signal-engine.svg?style=social)](https://github.com/VaibhavKaushik94/signal-engine/stargazers)
+[![GitHub license](https://img.shields.io/github/license/VaibhavKaushik94/signal-engine)](https://github.com/VaibhavKaushik94/signal-engine/blob/main/LICENSE)
+[![Local AI](https://img.shields.io/badge/Ollama-Powered-orange.svg)](https://ollama.com/)
+
 A lightweight Chrome extension that filters social media feeds (X/Twitter, LinkedIn, YouTube) using a local AI service (Ollama). Signal Engine doesn't just block keywords; it uses LLMs to understand the **intent** of every post.
 
 ---
@@ -101,6 +105,28 @@ feed-filter-mvp/
 - **Privacy:** All AI classification happens locally on your machine. No data is sent to external servers.
 - **Fail-open:** If Ollama is unreachable, the extension defaults to showing all posts to ensure no critical content is missed.
 - **Performance:** Filtering runs per post via `MutationObserver`. Keep an eye on system resources for extremely large feeds.
+
+---
+
+## 🗺️ Roadmap
+- [ ] **Persistent Storage:** Keep track of filtering stats over time.
+- [ ] **Multi-Model Support:** Add support for Llama 3, Mistral, and Gemma.
+- [ ] **Platform Expansion:** Add support for Reddit and Facebook.
+- [ ] **Cloud Fallback:** Optional encrypted cloud classification for low-resource devices.
+- [ ] **UI Themes:** Dark/Light mode customization.
+
+---
+
+## 🤝 Contributing
+Contributions are welcome! Whether it's a bug report, a feature request, or a new prompt optimization, feel free to open an issue or submit a pull request.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+**If you find this project useful, please give it a ⭐️ on GitHub!**
 
 ---
 
