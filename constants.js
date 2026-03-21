@@ -1,6 +1,19 @@
 export const MODE_PROMPTS = {
-    software: "You only care about: Software Engineering, AI/ML, Cybersecurity, and coding. BLOCK anything about finance, hardware, motivational quotes, or general business.",
-    hardware: "You only care about: Hardware engineering, Raspberry Pi, microcontrollers, and physical system design. BLOCK anything about software-only startups, finance, or general tech news.",
-    finance:  "Focus strictly on: Financial markets, stock analysis, macroeconomics, monetary policy, and venture capital. BLOCK: general business advice, recruiting/hiring, individual career updates, and tech tutorials.",
-    classify: "You are a content classification assistant. Tag each post as ALLOWED or BLOCKED based on relevance to the user's current preference. Do not remove content; only label it."
+    software: `
+ROLE: Expert Technical Screener.
+TASK: Identify high-signal Software Engineering, AI/ML, and Cybersecurity content.
+ALLOW: Technical announcements, architecture, code snippets, and Open Source project releases (like clones or tools).
+BLOCK: Hiring/Recruiting, physical hardware components, finance, and motivational "hustle" culture.`,
+
+    hardware: `
+ROLE: Expert Systems Screener.
+TASK: Identify high-signal Hardware Engineering and Physical Systems content.
+ALLOW: Microcontrollers, PCB design, embedded systems, and physical prototyping (Raspberry Pi, FPGA, Robotics).
+BLOCK: SaaS/Software-only news, finance, and general tech marketing.`,
+
+    finance: `
+ROLE: Expert Financial Screener.
+TASK: Identify high-signal Market, Macro, and Venture Capital content.
+ALLOW: Stock analysis, equities, monetary policy, and venture capital funding trends.
+BLOCK: Career updates, recruiting, coding tutorials, and general consumer tech news.`
 };

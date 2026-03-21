@@ -10,73 +10,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const metricAllowed = document.getElementById('metric-allowed');
     const metricBlocked = document.getElementById('metric-blocked');
 
-    // 🔥 NEW: Ollama/Cloud Heartbeat & Model ping
+    const toggleHide = document.getElementById('toggle-hide');
+    const toggleLabel = document.getElementById('toggle-label');
+    const actionLabel = document.getElementById('action-label');
+    const actionDesc = document.getElementById('action-desc');
+
+    let currentFocusMode = 'software';
+    let currentActionType = 'hide';
+
     async function checkOllama() {
         const endpoint = 'http://localhost:11434';
-        const statusUrl = endpoint.replace(/\/$/, '') + '/';
-        const modelsUrl = endpoint.replace(/\/$/, '') + '/models';
-
         try {
-            const resp = await fetch(statusUrl, { method: 'GET' });
-            if (!resp.ok) throw new Error('Bad response');
-
+            const resp = await fetch(endpoint + '/', { method: 'GET' });
+            if (!resp.ok) throw new Error();
             statusContainer.className = 'online';
             statusText.textContent = 'AI Engine: Local Ollama online';
-
-            const modelsResp = await fetch(modelsUrl, { method: 'GET' });
-            if (modelsResp.ok) {
-                const modelsData = await modelsResp.json();
-                const hasPhi3 = Array.isArray(modelsData) ? modelsData.some(m => m.name === 'phi3') : !!modelsData?.find?.(m => m.name === 'phi3');
-                if (hasPhi3) {
-                    statusText.textContent = `${statusText.textContent} (phi3 OK)`;
-                } else {
-                    statusText.textContent = `${statusText.textContent} (phi3 missing)`;
-                }
-            }
         } catch (error) {
             statusContainer.className = 'offline';
             statusText.textContent = 'AI Engine: Local Ollama unreachable';
         }
     }
 
-    // Load metrics and refresh status
-    chrome.storage.local.get(['totalScanned', 'totalAllowed', 'totalBlocked'], (result) => {
-        metricScanned.textContent = result.totalScanned || 0;
-        metricAllowed.textContent = result.totalAllowed || 0;
-        metricBlocked.textContent = result.totalBlocked || 0;
-    });
-
-    // Run the check as soon as the menu opens
-    checkOllama();
-
-    // Check for AI errors
-    chrome.storage.local.get(['aiError'], (result) => {
-        if (result.aiError && statusContainer.className === 'online') {
-            statusText.textContent = 'AI Engine: Service Warning (Falling back to unfiltered)';
-        }
-    });
-
-    // 1. Load initial states
-    chrome.storage.local.get(['focusMode', 'isActive', 'customPromptText'], (result) => {
-        const currentMode = result.focusMode || 'software';
+    chrome.storage.local.get(['focusMode', 'isActive', 'customPromptText', 'actionType'], (result) => {
+        currentFocusMode = result.focusMode || 'software';
+        currentActionType = result.actionType || 'hide';
         const isActive = result.isActive !== false; 
         
-        if (result.customPromptText) {
-            customPromptInput.value = result.customPromptText;
-        }
+        if (result.customPromptText) customPromptInput.value = result.customPromptText;
 
-        updateModeUI(currentMode);
+        updateModeUI(currentFocusMode);
         updatePowerUI(isActive);
-
-        if (currentMode === 'custom') {
-            statusText.textContent = 'AI Engine: Local Ollama (custom filter active)';
-        }
+        updateActionUI(currentActionType);
     });
 
-    // 2. Power Button Logic
+    checkOllama();
+
     powerBtn.addEventListener('click', () => {
         chrome.storage.local.get(['isActive'], (result) => {
-            const newState = result.isActive === false ? true : false;
+            const newState = result.isActive === false;
             chrome.storage.local.set({ isActive: newState }, () => {
                 updatePowerUI(newState);
                 reloadActiveTab();
@@ -84,52 +55,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 3. Preset Mode Buttons Logic
+    toggleHide.addEventListener('click', () => setAction('hide'));
+    toggleLabel.addEventListener('click', () => setAction('label'));
+
+    function setAction(type) {
+        currentActionType = type;
+        chrome.storage.local.set({ actionType: type }, () => {
+            updateActionUI(type);
+            reloadActiveTab();
+        });
+    }
+
+    function updateActionUI(type) {
+        const modeTitle = document.querySelector(`.mode-btn[data-mode="${currentFocusMode}"] .mode-title`).textContent.trim();
+        
+        if (type === 'hide') {
+            toggleHide.classList.add('active');
+            toggleLabel.classList.remove('active');
+            actionLabel.textContent = 'HIDING';
+            actionDesc.innerHTML = `Irrelevant posts (not <b>${modeTitle}</b>) are removed.`;
+        } else {
+            toggleHide.classList.remove('active');
+            toggleLabel.classList.add('active');
+            actionLabel.textContent = 'LABELING';
+            actionDesc.innerHTML = `Tagging posts relevant to <b>${modeTitle}</b> with borders.`;
+        }
+    }
+
     buttons.forEach(btn => {
         btn.addEventListener('click', () => {
             const mode = btn.getAttribute('data-mode');
-
-            // If user changes mode, ensure the extension is active
-            chrome.storage.local.set({ isActive: true }, () => {
+            currentFocusMode = mode;
+            chrome.storage.local.set({ isActive: true, focusMode: mode }, () => {
                 updatePowerUI(true);
+                updateModeUI(mode);
+                updateActionUI(currentActionType); // Refresh description
+                reloadActiveTab();
             });
-
-            if (mode === 'custom') {
-                // Set custom mode so we evaluate with custom prompt immediately
-                chrome.storage.local.set({ focusMode: 'custom' }, () => {
-                    updateModeUI('custom');
-                    customContainer.classList.add('visible');
-                    statusText.textContent = 'AI Engine: Local Ollama (custom filter active)';
-                    reloadActiveTab();
-                });
-            } else {
-                // Save and apply immediately for presets
-                chrome.storage.local.set({ focusMode: mode }, () => {
-                    updateModeUI(mode);
-                    statusText.textContent = `AI Engine: Local Ollama online (${mode})`;
-                    reloadActiveTab();
-                });
-            }
         });
     });
 
-    // 4. Save Custom Prompt Logic
     saveCustomBtn.addEventListener('click', () => {
         const customText = customPromptInput.value.trim();
-        if (!customText) {
-            alert("Please enter a filter description.");
-            return;
-        }
-        
-        // Ensure extension is active when custom filter is saved
-        chrome.storage.local.set({ 
-            isActive: true,
-            focusMode: 'custom',
-            customPromptText: customText 
-        }, () => {
+        if (!customText) return;
+        chrome.storage.local.set({ isActive: true, focusMode: 'custom', customPromptText: customText }, () => {
             saveCustomBtn.textContent = "Saved";
-            setTimeout(() => saveCustomBtn.textContent = "Save & Apply", 3000);
+            setTimeout(() => saveCustomBtn.textContent = "Save & Apply", 2000);
+            currentFocusMode = 'custom';
             updateModeUI('custom');
+            updateActionUI(currentActionType);
             updatePowerUI(true);
             reloadActiveTab();
         });
@@ -137,84 +111,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateMetrics() {
         chrome.storage.local.get(['totalScanned', 'totalAllowed', 'totalBlocked'], (result) => {
-            const scanned = result.totalScanned || 0;
-            const allowed = result.totalAllowed || 0;
-            const blockedDerived = Math.max(0, scanned - allowed);
-
-            metricScanned.textContent = scanned;
-            metricAllowed.textContent = allowed;
-            metricBlocked.textContent = blockedDerived;
+            metricScanned.textContent = result.totalScanned || 0;
+            metricAllowed.textContent = result.totalAllowed || 0;
+            metricBlocked.textContent = result.totalBlocked || 0;
         });
     }
 
-    // Refresh metrics in real time when storage changes
-    chrome.storage.onChanged.addListener((changes) => {
-        if (changes.totalScanned || changes.totalAllowed || changes.totalBlocked) {
-            updateMetrics();
-        }
-    });
-
+    chrome.storage.onChanged.addListener(updateMetrics);
     updateMetrics();
 
-    // --- Helper Functions ---
     function updateModeUI(activeMode) {
-        buttons.forEach(btn => {
-            if (btn.getAttribute('data-mode') === activeMode) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-
-        // Toggle the custom text area visibility
-        if (activeMode === 'custom') {
-            customContainer.classList.add('visible');
-        } else {
-            customContainer.classList.remove('visible');
-        }
+        buttons.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-mode') === activeMode));
+        customContainer.classList.toggle('visible', activeMode === 'custom');
     }
 
     function updatePowerUI(isActive) {
-        if (isActive) {
-            powerBtn.textContent = "Turn OFF";
-            powerBtn.className = "on";
-            setModeButtonsEnabled(true);
-        } else {
-            powerBtn.textContent = "Turn ON";
-            powerBtn.className = "off";
-            setModeButtonsEnabled(false);
-        }
-    }
-
-    function setModeButtonsEnabled(enabled) {
-        buttons.forEach(btn => {
-            if (enabled) {
-                btn.classList.remove('disabled');
-                btn.disabled = false;
-            } else {
-                btn.classList.add('disabled');
-                btn.disabled = true;
-            }
-        });
+        powerBtn.textContent = isActive ? "Turn OFF" : "Turn ON";
+        powerBtn.className = isActive ? "on" : "off";
     }
 
     function reloadActiveTab() {
-        try {
-            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                if (tabs && tabs.length > 0) {
-                    const tab = tabs[0];
-                    // If Chrome hides the URL, or if it matches our sites, force reload
-                    if (!tab.url || tab.url.match(/x\.com|twitter\.com|linkedin\.com|youtube\.com/)) {
-                        chrome.tabs.reload(tab.id, () => {
-                            if (chrome.runtime.lastError) {
-                                console.warn('Signal Engine reload warning:', chrome.runtime.lastError.message);
-                            }
-                        });
-                    }
-                }
-            });
-        } catch (err) {
-            console.warn('Signal Engine reloadActiveTab exception:', err);
-        }
+        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+            if (tabs[0]) chrome.tabs.reload(tabs[0].id);
+        });
     }
 });

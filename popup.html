@@ -17,7 +17,12 @@
     .mode-title { font-weight: 600; font-size: 14px; display: block; }
     .mode-desc { font-size: 11px; color: #94a3b8; display: block; margin-top: 4px; line-height: 1.3; }
 
-    /* NEW: Custom Input Styles */
+    /* NEW: Action Mode Toggle */
+    .action-container { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 15px; }
+    .toggle-group { display: flex; background: #0f172a; border-radius: 20px; padding: 2px; border: 1px solid #334155; margin-top: 8px; }
+    .toggle-item { flex: 1; border: none; background: transparent; color: #94a3b8; padding: 6px; border-radius: 18px; cursor: pointer; font-size: 10px; font-weight: 700; transition: all 0.2s; }
+    .toggle-item.active { background: #3b82f6; color: white; }
+
     #custom-container { display: none; margin-top: 10px; background: #1e293b; padding: 10px; border-radius: 6px; border: 1px solid #334155; }
     #custom-container.visible { display: block; }
     #custom-prompt { width: 100%; height: 80px; background: #0f172a; border: 1px solid #334155; color: #f8fafc; padding: 8px; border-radius: 4px; font-size: 12px; resize: none; box-sizing: border-box; margin-bottom: 8px; font-family: inherit;}
@@ -41,6 +46,18 @@
 
   <div id="status-container" class="offline">
     <div><span class="status-dot"></span><span id="status-text">Checking Local AI...</span></div>
+  </div>
+
+  <div class="action-container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Action Mode</span>
+      <span id="action-label" style="font-size: 10px; color: #3b82f6; font-weight: 700;">HIDING</span>
+    </div>
+    <div class="toggle-group">
+      <button id="toggle-hide" class="toggle-item active">HIDE</button>
+      <button id="toggle-label" class="toggle-item">LABEL</button>
+    </div>
+    <div id="action-desc" style="font-size: 10px; color: #64748b; margin-top: 8px; line-height: 1.3;">Irrelevant posts will be removed from your feed.</div>
   </div>
 
   <div id="metrics-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
@@ -71,11 +88,6 @@
   <button class="mode-btn" data-mode="custom">
     <span class="mode-title"> Custom Filter</span>
     <span class="mode-desc">Define your own rules.</span>
-  </button>
-
-  <button class="mode-btn" data-mode="classify">
-    <span class="mode-title"> Classification</span>
-    <span class="mode-desc">Label posts without removing them.</span>
   </button>
 
   <div id="custom-container">

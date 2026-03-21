@@ -159,27 +159,32 @@ async function processPost(containerNode, textElement) {
     const isProductive = result.isProductive;
     const label = result.label;
 
-    const focusMode = await new Promise((resolve) => {
-        chrome.storage.local.get(['focusMode'], (res) => {
-            resolve(res.focusMode || 'software');
+    const settings = await new Promise((resolve) => {
+        chrome.storage.local.get(['focusMode', 'actionType'], (res) => {
+            resolve({
+                mode: res.focusMode || 'software',
+                action: res.actionType || 'hide'
+            });
         });
     });
 
-    if (focusMode === 'classify') {
+    if (settings.action === 'label') {
         containerNode.style.setProperty('opacity', '1', 'important');
+        containerNode.style.setProperty('padding-left', '12px', 'important');
         if (isProductive) {
             incrementMetric('allowed');
-            containerNode.style.setProperty('border', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
+            containerNode.style.setProperty('border-left', `${CONFIG.borderWidth} solid ${CONFIG.borderColor}`, 'important');
             containerNode.style.setProperty('background-color', 'rgba(16, 185, 129, 0.07)', 'important');
         } else {
             incrementMetric('blocked');
-            containerNode.style.setProperty('border', `${CONFIG.borderWidth} solid #ef4444`, 'important');
+            containerNode.style.setProperty('border-left', `${CONFIG.borderWidth} solid #ef4444`, 'important');
             containerNode.style.setProperty('background-color', 'rgba(220, 38, 38, 0.08)', 'important');
         }
         containerNode.dataset.signalEngineLabel = label;
         return;
     }
 
+    // Default: HIDE action
     if (isProductive) {
         incrementMetric('allowed');
         containerNode.style.setProperty('opacity', '1', 'important');

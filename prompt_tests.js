@@ -23,6 +23,7 @@ const testSuite = [
     // --- SOFTWARE MODE ---
     { mode: 'software', expected: 'ALLOWED', text: "Implementing a distributed KV store in Go using Raft consensus." },
     { mode: 'software', expected: 'ALLOWED', text: "New React 19 features: Server Components and Actions explained." },
+    { mode: 'software', expected: 'ALLOWED', text: "OpenClaw: An open-source clone of Claude built with TypeScript and Python." },
     { mode: 'software', expected: 'ALLOWED', text: "Zero-day vulnerability found in popular NPM package with 1M downloads." },
     { mode: 'software', expected: 'BLOCKED', text: "10 tips to stay motivated and crush your morning routine! #hustle" },
     { mode: 'software', expected: 'BLOCKED', text: "Bitcoin price hits all-time high as ETF inflows surge." },

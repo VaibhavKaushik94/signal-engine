@@ -39,11 +39,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             } else {
                 // Standard preset prompt
                 const modeInstructions = MODE_PROMPTS[currentMode] || MODE_PROMPTS['software'];
-                systemPrompt = `You are a ruthless content filter. ${modeInstructions}
-                Evaluate the following text. 
-                - If it strictly matches your allowed topics, output exactly: ALLOWED
-                - If it does not match, or is generic, output exactly: BLOCKED
-                Output EXACTLY ONE WORD. No explanations.`;
+                systemPrompt = `${modeInstructions}
+
+EVALUATION RULES:
+- If the text strictly matches the ALLOW criteria above, output: ALLOWED
+- If it matches the BLOCK criteria or is generic noise, output: BLOCKED
+- Output EXACTLY ONE WORD. No explanations.`;
             }
 
             chrome.storage.local.get(['apiSource', 'apiEndpoint'], (sourceResult) => {
@@ -87,31 +88,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // --- 3. ICON BADGE HUD LOGIC ---
 function updateBadge() {
-    chrome.storage.local.get(['focusMode', 'isActive'], (result) => {
+    chrome.storage.local.get(['focusMode', 'isActive', 'actionType'], (result) => {
         const isActive = result.isActive !== false;
         const mode = result.focusMode || 'software';
+        const action = result.actionType || 'hide';
 
         if (!isActive) {
             chrome.action.setBadgeText({ text: "OFF" });
             chrome.action.setBadgeBackgroundColor({ color: "#ef4444" }); // Red
         } else {
             let text = "SW";
-            let color = "#10b981"; // Default Green
-            
             if (mode === 'hardware') text = "HW";
             if (mode === 'finance') text = "FIN";
+            if (mode === 'custom') text = "CU";
             
-            // Catch custom mode
-            if (mode === 'custom') {
-                text = "CU";
-                color = "#3b82f6"; // Blue to indicate Custom
-            }
-
-            // Catch classification mode
-            if (mode === 'classify') {
-                text = "CL";
-                color = "#8b5cf6"; // Purple for classification
-            }
+            // Color based on ACTION: Hide (Green) vs Label (Purple)
+            let color = (action === 'hide') ? "#10b981" : "#8b5cf6";
             
             chrome.action.setBadgeText({ text: text });
             chrome.action.setBadgeBackgroundColor({ color: color });
@@ -123,7 +115,7 @@ chrome.runtime.onStartup.addListener(updateBadge);
 chrome.runtime.onInstalled.addListener(updateBadge);
 
 chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (changes.focusMode || changes.isActive) {
+    if (changes.focusMode || changes.isActive || changes.actionType) {
         updateBadge();
     }
 });
